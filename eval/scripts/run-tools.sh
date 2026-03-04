@@ -53,7 +53,8 @@ if [ $HAVE_ADERYN -eq 1 ]; then
 
   aderyn . \
     --output "$RAW_DIR/aderyn/full-project.md" \
-    --exclude "lib/" \
+    --path-excludes "lib/" \
+    --src "src/test" \
     2>"$RAW_DIR/aderyn/aderyn-stderr.txt" || true
 
   echo "    Aderyn output: $RAW_DIR/aderyn/full-project.md"

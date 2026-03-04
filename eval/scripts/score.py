@@ -370,14 +370,18 @@ def main():
 
     # Print summary to stdout
     o = metrics["overall"]
+    recall_str    = f"{o['recall']:.1%}"
+    precision_str = f"{o['precision']:.1%}"
+    f1_str        = f"{o['f1']:.1%}"
+    caught_str    = f"{o['true_positives']}/{o['total_ground_truth']} contracts"
     print(f"""
 ╔══════════════════════════════════════╗
 ║       SolidSecs Eval Summary         ║
 ╠══════════════════════════════════════╣
-║  Recall:    {o['recall']:.1%:<28} ║
-║  Precision: {o['precision']:.1%:<28} ║
-║  F1 Score:  {o['f1']:.1%:<28} ║
-║  Caught:    {o['true_positives']}/{o['total_ground_truth']} contracts{'':<19} ║
+║  Recall:    {recall_str:<28}║
+║  Precision: {precision_str:<28}║
+║  F1 Score:  {f1_str:<28}║
+║  Caught:    {caught_str:<28}║
 ╚══════════════════════════════════════╝
 """)
 
