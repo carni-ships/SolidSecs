@@ -69,6 +69,12 @@ which slither aderyn myth medusa echidna halmos forge solhint semgrep wake pyrom
 
 Record which tools are available. Load `references/tools.md` for exact invocations.
 
+> **Tool absence escalation:** When a priority-1 tool is missing, manually cover the vulnerability classes it specializes in:
+> - No **Slither** → manually check: arbitrary ERC20 send/approve, unprotected `selfdestruct`, unchecked low-level calls, reentrancy, missing return values
+> - No **Aderyn** → manually check: missing access control on all `public`/`external` state-changing functions
+> - No **Mythril** → manually check: integer overflow in `unchecked` blocks, bad randomness, tx.origin auth
+> - No **Semgrep** → manually apply the full Pass A grep block in Phase 3
+
 ---
 
 ## Phase 1: Automated Tool Execution
@@ -145,6 +151,8 @@ Identify every place that moves funds or modifies critical state. Map who can ca
 
 Two passes over the codebase. Load `references/vulnerability-taxonomy.md` for full class descriptions.
 
+> **Discipline:** Finding one vulnerability in a function is a signal to look **harder at that function**, not a reason to move on. Functions with one bug often have more. Complete all Pass B checks for the current function before proceeding to the next.
+
 ### Pass A: Syntactic (grep-based pattern matching)
 
 Run these searches. Each hit requires semantic follow-up in Pass B.
@@ -186,6 +194,14 @@ grep -n "flashLoan\|executeOperation\|uniswapV3FlashCallback\|pancakeCall" $SOL_
 
 # ERC-4626 / vault math
 grep -n "convertToShares\|convertToAssets\|previewDeposit\|previewMint" $SOL_FILES
+
+# Approval targets — flag every approve for trust-boundary review (ETH-105)
+grep -n "approve\|Approve\|setOperator\|setApprovalForAll" $SOL_FILES
+
+# Calldata flow — interface calls on variable (non-constant) addresses
+# Each hit: trace where the target address originates (param? storage? constant?)
+grep -n "I[A-Z][a-zA-Z]*(" $SOL_FILES | grep -v "//\|interface\|event\|error"
+grep -n "\.call(\|\.delegatecall(\|\.staticcall(" $SOL_FILES
 ```
 
 ### Pass B: Semantic Analysis
@@ -236,6 +252,19 @@ For every hit from Pass A, and for every critical path identified in Phase 2, ap
 - Expiry timestamp checked?
 - `ecrecover` return value checked for address(0)?
 - Signature malleable (s value bounds, v value)?
+
+**Approval Target Trust Check (ETH-105):**
+For every `approve` / `safeApprove` / `setOperator` hit from Pass A:
+- Is the spender address a **hardcoded constant**? → Safe
+- Is the spender derived from a **trusted factory via CREATE2**? → Safe
+- Is the spender taken from **user-supplied calldata / function parameters**? → **Critical risk** — attacker controls who gets approved
+- Does the approval happen immediately before a **call into that same address**? → Compound risk: attacker can steal funds in the same transaction via `transferFrom`
+- Does the approval **persist beyond the current transaction**? → Any future deposit of that token into the contract is at risk
+
+**Calldata Flow Check:**
+For every interface call on a variable target (from Pass A):
+- Trace the target address back to its origin. Is it: (a) a hardcoded constant, (b) validated against a registry/allowlist, or (c) passed in from user calldata with no validation?
+- If (c): treat as untrusted external call — apply full reentrancy, approval-theft, and return-value checks
 
 **DeFi Protocol Checks:**
 Load `references/protocol-checklists.md` for the relevant protocol type and work through it systematically.
@@ -353,6 +382,7 @@ Default to **Standard** unless specified. Offer Deep for critical DeFi protocols
 
 Load `references/protocol-checklists.md` and apply the matching checklist for:
 - **AMM/DEX** — price oracle, slippage, sandwich attacks, LP math
+- **Aggregator/Router** — pool address validation, route injection, arbitrary approve, multicall msg.value reuse
 - **Lending** — liquidation logic, interest accrual, collateral math, bad debt
 - **Vault (ERC-4626)** — share inflation, rounding direction, emergency pause
 - **Bridge** — message replay, merkle proof verification, validator set

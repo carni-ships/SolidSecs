@@ -4,6 +4,38 @@ Apply the relevant checklist(s) during Phase 3 of the audit.
 
 ---
 
+## Aggregator / Router
+
+Applies to: swap aggregators, multi-AMM routers, meta-routers, intent-based executors.
+
+### Trust Boundaries
+- [ ] **Pool/protocol addresses validated?** Are all external call targets (pools, protocols) either hardcoded constants, derived from a trusted factory, or checked against an on-chain allowlist? Any user-supplied address that receives an `approve()` or is called into is a critical risk.
+- [ ] **Route/path parameter trusted?** If the route is user-supplied calldata (e.g., `address[] route`, `bytes path`), can an attacker inject a malicious contract address at any hop?
+- [ ] **Lazy-approve pattern safe?** If the router does `if (allowance == 0) approve(pool, MAX)` before calling into `pool`, is `pool` validated? An unvalidated lazy-approve to a user-supplied address grants permanent max approval.
+- [ ] **Executor/solver trusted?** Generic executor patterns (`execute(target, data)`, `snwap`) — is `target` restricted to an allowlist? Can the executor re-enter the router or pull approved tokens?
+
+### Multicall Safety
+- [ ] **msg.value reuse in payable multicall?** If `multicall` uses `delegatecall` and is `payable`, can `msg.value` be credited multiple times to internal accounting (e.g., transient deposit) with only one real ETH deposit?
+- [ ] **Callback lock during execute?** If the router has V3/V4 callbacks (`fallback`, `unlockCallback`), are they blocked during generic execution paths to prevent re-entry via a malicious target?
+- [ ] **Residual balance swept?** Can funds temporarily held by the router mid-multicall be front-run by a third party calling `sweep()` or equivalent before the user completes their sequence?
+
+### Callback Authentication
+- [ ] **V3 callback authenticated?** `uniswapV3SwapCallback` / `fallback` — is `msg.sender` verified against the deterministically computed pool address? Are callback parameters (payer, token, amount) from the original call, not attacker-supplied?
+- [ ] **V4 unlock callback authenticated?** `unlockCallback` — is `msg.sender == poolManager`?
+- [ ] **Arbitrary callback data?** If callback data is user-controlled, can an attacker influence the callback handler's behaviour?
+
+### Slippage & Output
+- [ ] **Per-hop slippage?** Multi-hop routes that pass `min_dy = 0` / `minAmountOut = 0` to each intermediate AMM allow sandwich attacks on individual hops even when end-to-end slippage is checked.
+- [ ] **Output verified correctly?** Is output measured by pre/post balance delta (correct) or by return value from potentially untrustworthy pool (wrong)?
+- [ ] **Exact-out overpay refunded?** For exact-output swaps, is excess input always refunded to the original payer?
+
+### Token Handling
+- [ ] **Permit functions forward to correct spender?** `permit(token, ..., v, r, s)` — does it approve `address(this)` (correct) or an arbitrary address?
+- [ ] **Fee-on-transfer tokens?** If input or output token charges fees on transfer, is the received amount measured by balance delta?
+- [ ] **Stale token approvals?** Does the router permanently approve external pools for ERC20 tokens? Can those approvals be exploited in future transactions?
+
+---
+
 ## AMM / DEX
 
 - [ ] Price oracle: is it TWAP (safe) or spot (manipulable)?
