@@ -85,13 +85,32 @@ if [ $HAVE_SEMGREP -eq 1 ]; then
 fi
 
 # Run Forge tests — exploit PoC confirmation
+# Some tests use vm.createSelectFork("mainnet") which requires a live RPC.
+# The corpus foundry.toml hardcodes rpc.ankr.com which now requires an API key.
+# We patch it to use ${MAINNET_RPC_URL} so any free public RPC can be used.
+# Default: https://ethereum-rpc.publicnode.com (no key needed)
 if [ $HAVE_FORGE -eq 1 ]; then
   echo "--> Running Forge tests (PoC confirmation)..."
   pushd "$CORPUS" > /dev/null
 
+  # Patch foundry.toml to use env-var-interpolated RPC (restored on exit)
+  FOUNDRY_TOML="$CORPUS/foundry.toml"
+  FOUNDRY_TOML_BAK="$CORPUS/foundry.toml.eval-bak"
+  cp "$FOUNDRY_TOML" "$FOUNDRY_TOML_BAK"
+  trap 'mv "$FOUNDRY_TOML_BAK" "$FOUNDRY_TOML"' EXIT
+  sed -i.tmp 's|https://rpc.ankr.com/eth|\${MAINNET_RPC_URL}|g' "$FOUNDRY_TOML"
+  rm -f "$FOUNDRY_TOML.tmp"
+
+  export MAINNET_RPC_URL="${MAINNET_RPC_URL:-https://ethereum-rpc.publicnode.com}"
+  echo "    Using RPC: $MAINNET_RPC_URL"
+
   forge test --json \
     2>"$RAW_DIR/forge/forge-stderr.txt" \
     > "$RAW_DIR/forge/full-project.json" || true
+
+  # Restore original foundry.toml
+  mv "$FOUNDRY_TOML_BAK" "$FOUNDRY_TOML"
+  trap - EXIT
 
   echo "    Forge output: $RAW_DIR/forge/full-project.json"
   popd > /dev/null
