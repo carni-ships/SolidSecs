@@ -15,12 +15,7 @@ Orchestrates every available audit tool (Slither, Aderyn, Mythril, Echidna, Medu
 ## Install
 
 ```bash
-# Via earno-plugin (recommended)
-earno plugin add github:carnation/evm-audit-plugin
-
-# Manual
-git clone https://github.com/carnation/evm-audit-plugin
-cp -r evm-audit-plugin ~/.claude/plugins/evm-audit
+git clone https://github.com/carni-ships/SolidSecs ~/.claude/plugins/evm-audit
 ```
 
 ## Usage
