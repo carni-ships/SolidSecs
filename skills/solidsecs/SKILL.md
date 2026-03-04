@@ -1,5 +1,5 @@
 ---
-name: evm-audit
+name: solidsecs
 description: |
   EVM/Solidity smart contract security audit skill. Activate when user asks to:
   "audit", "security review", "scan for vulnerabilities", "check this contract",
@@ -304,7 +304,7 @@ Load `references/report-template.md` for the full structure. Minimum sections:
 # Security Audit Report — [Project Name]
 
 **Date:** [date]
-**Auditor:** Claude (evm-audit skill)
+**Auditor:** Claude (solidsecs skill)
 **Scope:** [files audited]
 **Tools Run:** [list]
 

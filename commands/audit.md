@@ -22,7 +22,7 @@ Parse the arguments provided:
 - **path** (optional): file or directory to audit. Default: current working directory.
 - **--depth** (optional): `quick`, `standard`, or `deep`. Default: `standard`.
 
-Then execute the `evm-audit` skill with the specified scope and depth:
+Then execute the `solidsecs` skill with the specified scope and depth:
 
 1. Detect installed tools (`slither`, `aderyn`, `myth`, `forge`, `echidna`, `medusa`, `halmos`, `semgrep`, `solhint`)
 2. Run all available tools on the target path

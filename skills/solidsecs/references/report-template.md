@@ -11,7 +11,7 @@ Copy this template and fill in during Phase 6 of the audit.
 **Repository:** [URL or path]
 **Commit / Version:** [git hash or tag]
 **Audit Date:** [YYYY-MM-DD]
-**Auditor:** Claude (evm-audit skill v1.0.0)
+**Auditor:** Claude (solidsecs skill v1.0.0)
 **Scope:** [list of files/contracts audited]
 **Out of Scope:** [test files, mocks, external dependencies]
 
@@ -227,7 +227,7 @@ function withdraw(uint256 amount) external nonReentrant {
 
 ## Appendix C: Disclosure
 
-This audit was performed by an AI system using the evm-audit skill. It does not constitute a professional security audit. Always have critical contracts reviewed by professional human auditors before mainnet deployment.
+This audit was performed by an AI system using the solidsecs skill. It does not constitute a professional security audit. Always have critical contracts reviewed by professional human auditors before mainnet deployment.
 
 Findings represent the state of the code at the audited commit. Changes after this commit are not covered.
 ```

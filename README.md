@@ -1,4 +1,4 @@
-# evm-audit — Claude Code Plugin
+# solidsecs — Claude Code Plugin
 
 Full-spectrum EVM/Solidity smart contract security audit plugin for [Claude Code](https://claude.ai/code).
 
@@ -15,7 +15,7 @@ Orchestrates every available audit tool (Slither, Aderyn, Mythril, Echidna, Medu
 ## Install
 
 ```bash
-git clone https://github.com/carni-ships/SolidSecs ~/.claude/plugins/evm-audit
+git clone https://github.com/carni-ships/SolidSecs ~/.claude/plugins/solidsecs
 ```
 
 ## Usage
@@ -29,7 +29,7 @@ git clone https://github.com/carni-ships/SolidSecs ~/.claude/plugins/evm-audit
 ```
 
 ### Auto-triggered skill
-The `evm-audit` skill activates automatically when you say things like:
+The `solidsecs` skill activates automatically when you say things like:
 - "audit this contract"
 - "security review"
 - "scan for vulnerabilities"
@@ -67,10 +67,10 @@ Specialized checklists for: AMM/DEX · Lending · Vault/ERC-4626 · Bridge · Go
 ## Reference Material
 
 The plugin loads vulnerability knowledge from:
-- `skills/evm-audit/references/tools.md` — CLI invocations for 12+ tools
-- `skills/evm-audit/references/vulnerability-taxonomy.md` — ETH-001–ETH-096+ index
-- `skills/evm-audit/references/protocol-checklists.md` — Protocol-specific checks
-- `skills/evm-audit/references/report-template.md` — Report structure
+- `skills/solidsecs/references/tools.md` — CLI invocations for 12+ tools
+- `skills/solidsecs/references/vulnerability-taxonomy.md` — ETH-001–ETH-096+ index
+- `skills/solidsecs/references/protocol-checklists.md` — Protocol-specific checks
+- `skills/solidsecs/references/report-template.md` — Report structure
 
 ## License
 
