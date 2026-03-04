@@ -163,6 +163,56 @@ def parse_semgrep_json(path: Path) -> dict[str, set[str]]:
     return findings
 
 
+def parse_forge_json(path: Path) -> dict[str, set[str]]:
+    """
+    Parse `forge test --json` output.
+    Returns: {filename → {"forge:exploitable"}} for files where an exploit PoC test passes.
+
+    Logic: a passing test whose name does NOT contain remediation markers
+    (fixed, safe, secure, revert, remediated) is treated as exploit confirmation.
+    setUp failures mean forge couldn't run the test (external deps missing).
+    """
+    findings: dict[str, set[str]] = defaultdict(set)
+    if not path.exists():
+        return findings
+
+    # Regex patterns for test names that indicate remediated/safe variants — skip these.
+    # Use word-boundary-aware patterns so "unsafe" doesn't match "safe".
+    import re as _re
+    REMEDIATION_RE = _re.compile(
+        r"(?<![a-z])(fixed|secure|revert|remediated|mitigation)(?![a-z])"
+        r"|(?<![a-z])safe(?![a-z])"  # "safe" but not inside "unsafe"
+    )
+
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        return findings
+
+    for suite_key, result in data.items():
+        # suite_key format: "src/test/Reentrancy.sol:ContractTest"
+        raw_path = suite_key.split(":")[0]
+        filename = Path(raw_path).name if raw_path else ""
+        if not filename:
+            continue
+
+        for test_name, info in result.get("test_results", {}).items():
+            status = info.get("status", "")
+            if status != "Success":
+                continue
+            test_lower = test_name.lower()
+            # Skip setUp — not an exploit test
+            if test_lower.startswith("setup"):
+                continue
+            # Skip remediation/safe variant tests (word-boundary aware)
+            if REMEDIATION_RE.search(test_lower):
+                continue
+            findings[filename].add("forge:exploitable")
+
+    return findings
+
+
 def parse_aderyn_md(path: Path) -> dict[str, set[str]]:
     """
     Parse Aderyn markdown output.
@@ -223,13 +273,16 @@ def parse_aderyn_md(path: Path) -> dict[str, set[str]]:
     return findings
 
 
-def score(ground_truth: dict, slither: dict, aderyn: dict, semgrep=None) -> dict:
+def score(ground_truth: dict, slither: dict, aderyn: dict, semgrep=None, forge=None) -> dict:
     """
     Compute TP/FP/FN per category and overall.
-    A contract is a TP if any tool flagged its expected category.
+    A contract is a TP if any tool flagged its expected category,
+    OR if forge confirmed exploitability via a passing PoC test.
     """
     if semgrep is None:
         semgrep = {}
+    if forge is None:
+        forge = {}
     categories = sorted({v["category"] for v in ground_truth.values()})
 
     per_cat: dict[str, dict] = {c: {"tp": 0, "fn": 0, "fp_files": []} for c in categories}
@@ -247,6 +300,7 @@ def score(ground_truth: dict, slither: dict, aderyn: dict, semgrep=None) -> dict
         slither_hits = slither.get(filename, set())
         aderyn_hits  = aderyn.get(filename, set())
         semgrep_hits = semgrep.get(filename, set())
+        forge_hits   = forge.get(filename, set())
 
         # Map slither detector names → categories
         slither_categories = {DETECTOR_TO_CATEGORY.get(d, "other") for d in slither_hits}
@@ -256,15 +310,18 @@ def score(ground_truth: dict, slither: dict, aderyn: dict, semgrep=None) -> dict
 
         detected_categories = slither_categories | aderyn_categories | semgrep_categories
 
-        if category in detected_categories or (expected and expected & slither_hits):
+        # Forge: a passing exploit PoC test confirms the vulnerability regardless of category
+        forge_confirmed = "forge:exploitable" in forge_hits
+
+        if category in detected_categories or (expected and expected & slither_hits) or forge_confirmed:
             per_cat[category]["tp"] += 1
             overall["tp"] += 1
         else:
             per_cat[category]["fn"] += 1
             overall["fn"] += 1
 
-    # Include semgrep in all_flagged_files
-    all_flagged_files |= set(semgrep.keys())
+    # Include semgrep and forge in all_flagged_files
+    all_flagged_files |= set(semgrep.keys()) | set(forge.keys())
 
     # False positives: files flagged by tools not in ground truth
     fp_files = all_flagged_files - gt_files
@@ -315,8 +372,8 @@ def render_markdown(metrics: dict, timestamp: str) -> str:
         "",
         f"**Date:** {timestamp}  ",
         f"**Corpus:** DeFiVulnLabs (ground-truth.json)  ",
-        f"**Tools scored:** Slither, Aderyn, Semgrep  ",
-    f"**Note:** Mythril broken (py-evm/pkg_resources incompatibility with this corpus); Aderyn excludes `test/` by default",
+        f"**Tools scored:** Slither, Aderyn, Semgrep, Forge (PoC tests)  ",
+    f"**Note:** Mythril broken (py-evm/pkg_resources incompatibility with this corpus); Aderyn excludes `test/` by default; Forge tests with external deps (Chainlink/Uniswap forks) fail setUp",
         "",
         "---",
         "",
@@ -425,8 +482,12 @@ def main():
     semgrep = parse_semgrep_json(raw_dir / "semgrep" / "full-project.json")
     print(f"  {len(semgrep)} files with findings")
 
+    print(f"\nParsing Forge test output from {raw_dir / 'forge/full-project.json'}")
+    forge = parse_forge_json(raw_dir / "forge" / "full-project.json")
+    print(f"  {len(forge)} files with passing exploit PoC tests")
+
     print("\nScoring...")
-    metrics = score(ground_truth, slither, aderyn, semgrep)
+    metrics = score(ground_truth, slither, aderyn, semgrep, forge)
 
     # Write JSON metrics
     metrics_path = out_dir / "metrics.json"
