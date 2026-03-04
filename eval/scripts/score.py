@@ -101,6 +101,68 @@ def parse_slither_json(path: Path) -> dict[str, set[str]]:
     return findings
 
 
+def parse_semgrep_json(path: Path) -> dict[str, set[str]]:
+    """
+    Parse Semgrep JSON output.
+    Returns: {filename → set of category tags}
+    """
+    findings: dict[str, set[str]] = defaultdict(set)
+    if not path.exists():
+        return findings
+
+    SEMGREP_RULE_TO_CATEGORY = {
+        "reentrancy":              "reentrancy",
+        "curve-readonly-reentrancy": "reentrancy",
+        "arbitrary-send-erc20":    "access_control",
+        "arbitrary-send-eth":      "access_control",
+        "tx-origin":               "access_control",
+        "suicidal":                "access_control",
+        "unprotected-upgrade":     "access_control",
+        "delegatecall":            "access_control",
+        "integer-overflow":        "arithmetic",
+        "divide-before-multiply":  "arithmetic",
+        "unchecked-return":        "external_calls",
+        "unchecked-transfer":      "external_calls",
+        "unchecked-lowlevel":      "external_calls",
+        "weak-prng":               "evm_specific",
+        "encode-packed-collision": "evm_specific",
+        "msg-value-loop":          "evm_specific",
+        "oracle":                  "oracle",
+        "chainlink":               "oracle",
+        "signature":               "signature",
+        "replay":                  "signature",
+        "proxy-storage-collision": "proxy",
+        "storage-collision":       "proxy",
+        "uninitialized-storage":   "proxy",
+        "arbitrary-low-level":     "external_calls",
+        "dos":                     "dos",
+        "unbounded-loop":          "dos",
+    }
+
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        return findings
+
+    for result in data.get("results", []):
+        rule_id = result.get("check_id", result.get("rule_id", "")).lower()
+        filepath = result.get("path", "")
+        filename = Path(filepath).name if filepath else ""
+        if not filename:
+            continue
+        # Match rule to category
+        for keyword, category in SEMGREP_RULE_TO_CATEGORY.items():
+            if keyword in rule_id:
+                findings[filename].add(f"semgrep:{category}")
+                break
+        else:
+            # Store the raw rule tag anyway
+            findings[filename].add(f"semgrep:{rule_id.split('.')[-1]}")
+
+    return findings
+
+
 def parse_aderyn_md(path: Path) -> dict[str, set[str]]:
     """
     Parse Aderyn markdown output.
@@ -161,11 +223,13 @@ def parse_aderyn_md(path: Path) -> dict[str, set[str]]:
     return findings
 
 
-def score(ground_truth: dict, slither: dict, aderyn: dict) -> dict:
+def score(ground_truth: dict, slither: dict, aderyn: dict, semgrep=None) -> dict:
     """
     Compute TP/FP/FN per category and overall.
     A contract is a TP if any tool flagged its expected category.
     """
+    if semgrep is None:
+        semgrep = {}
     categories = sorted({v["category"] for v in ground_truth.values()})
 
     per_cat: dict[str, dict] = {c: {"tp": 0, "fn": 0, "fp_files": []} for c in categories}
@@ -182,13 +246,15 @@ def score(ground_truth: dict, slither: dict, aderyn: dict) -> dict:
         # What did tools actually flag for this file?
         slither_hits = slither.get(filename, set())
         aderyn_hits  = aderyn.get(filename, set())
+        semgrep_hits = semgrep.get(filename, set())
 
         # Map slither detector names → categories
         slither_categories = {DETECTOR_TO_CATEGORY.get(d, "other") for d in slither_hits}
-        # Aderyn findings already encoded as "aderyn:category"
-        aderyn_categories  = {h.split(":")[1] for h in aderyn_hits if ":" in h}
+        # Aderyn/semgrep findings already encoded as "tool:category"
+        aderyn_categories  = {h.split(":")[1] for h in aderyn_hits  if ":" in h}
+        semgrep_categories = {h.split(":")[1] for h in semgrep_hits if ":" in h}
 
-        detected_categories = slither_categories | aderyn_categories
+        detected_categories = slither_categories | aderyn_categories | semgrep_categories
 
         if category in detected_categories or (expected and expected & slither_hits):
             per_cat[category]["tp"] += 1
@@ -196,6 +262,9 @@ def score(ground_truth: dict, slither: dict, aderyn: dict) -> dict:
         else:
             per_cat[category]["fn"] += 1
             overall["fn"] += 1
+
+    # Include semgrep in all_flagged_files
+    all_flagged_files |= set(semgrep.keys())
 
     # False positives: files flagged by tools not in ground truth
     fp_files = all_flagged_files - gt_files
@@ -246,7 +315,8 @@ def render_markdown(metrics: dict, timestamp: str) -> str:
         "",
         f"**Date:** {timestamp}  ",
         f"**Corpus:** DeFiVulnLabs (ground-truth.json)  ",
-        f"**Tools scored:** Slither, Aderyn",
+        f"**Tools scored:** Slither, Aderyn, Semgrep  ",
+    f"**Note:** Mythril broken (py-evm/pkg_resources incompatibility with this corpus); Aderyn excludes `test/` by default",
         "",
         "---",
         "",
@@ -351,8 +421,12 @@ def main():
     aderyn = parse_aderyn_md(raw_dir / "aderyn" / "full-project.md")
     print(f"  {len(aderyn)} files with findings")
 
+    print(f"\nParsing Semgrep output from {raw_dir / 'semgrep/full-project.json'}")
+    semgrep = parse_semgrep_json(raw_dir / "semgrep" / "full-project.json")
+    print(f"  {len(semgrep)} files with findings")
+
     print("\nScoring...")
-    metrics = score(ground_truth, slither, aderyn)
+    metrics = score(ground_truth, slither, aderyn, semgrep)
 
     # Write JSON metrics
     metrics_path = out_dir / "metrics.json"
