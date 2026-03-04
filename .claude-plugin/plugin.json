@@ -1,0 +1,22 @@
+{
+  "name": "evm-audit",
+  "version": "1.0.0",
+  "description": "Full-spectrum EVM/Solidity security audit: orchestrates Slither, Aderyn, Mythril, Echidna, Medusa, Halmos, Foundry, and more — then synthesizes findings into a professional severity-ranked markdown report.",
+  "author": {
+    "name": "carnation"
+  },
+  "repository": "https://github.com/carnation/evm-audit-plugin",
+  "license": "MIT",
+  "keywords": [
+    "solidity",
+    "evm",
+    "security",
+    "audit",
+    "smart-contract",
+    "slither",
+    "mythril",
+    "echidna",
+    "defi",
+    "vulnerability"
+  ]
+}
