@@ -1,0 +1,419 @@
+{
+  "_meta": {
+    "corpus": "DeFiVulnLabs",
+    "source": "https://github.com/SunWeb3Sec/DeFiVulnLabs",
+    "contracts_dir": "src/test",
+    "total_contracts": 50,
+    "taxonomy_ref": "skills/solidsecs/references/vulnerability-taxonomy.md"
+  },
+  "contracts": [
+    {
+      "file": "Reentrancy.sol",
+      "category": "reentrancy",
+      "eth_id": "ETH-001",
+      "severity": "critical",
+      "description": "Classic single-function reentrancy via .call before balance update",
+      "expected_detectors": ["reentrancy-eth", "reentrancy-no-eth"]
+    },
+    {
+      "file": "ReadOnlyReentrancy.sol",
+      "category": "reentrancy",
+      "eth_id": "ETH-004",
+      "severity": "high",
+      "description": "Read-only reentrancy — view function returns stale state during callback",
+      "expected_detectors": ["reentrancy-eth", "reentrancy-no-eth", "reentrancy-benign"]
+    },
+    {
+      "file": "ERC777-reentrancy.sol",
+      "category": "reentrancy",
+      "eth_id": "ETH-044",
+      "severity": "high",
+      "description": "ERC777 tokensReceived hook exploited for reentrancy",
+      "expected_detectors": ["reentrancy-eth", "reentrancy-no-eth"]
+    },
+    {
+      "file": "Overflow.sol",
+      "category": "arithmetic",
+      "eth_id": "ETH-015",
+      "severity": "high",
+      "description": "Integer overflow in pre-0.8 or unchecked block",
+      "expected_detectors": ["integer-overflow", "tautology"]
+    },
+    {
+      "file": "Overflow2.sol",
+      "category": "arithmetic",
+      "eth_id": "ETH-015",
+      "severity": "high",
+      "description": "Integer overflow variant 2",
+      "expected_detectors": ["integer-overflow"]
+    },
+    {
+      "file": "Divmultiply.sol",
+      "category": "arithmetic",
+      "eth_id": "ETH-017",
+      "severity": "medium",
+      "description": "Division before multiplication causes precision loss",
+      "expected_detectors": ["divide-before-multiply"]
+    },
+    {
+      "file": "Precision-loss.sol",
+      "category": "arithmetic",
+      "eth_id": "ETH-017",
+      "severity": "medium",
+      "description": "Precision loss in financial calculations",
+      "expected_detectors": ["divide-before-multiply"]
+    },
+    {
+      "file": "first-deposit.sol",
+      "category": "arithmetic",
+      "eth_id": "ETH-019",
+      "severity": "high",
+      "description": "ERC-4626 first deposit / share inflation attack",
+      "expected_detectors": []
+    },
+    {
+      "file": "unsafe-downcast.sol",
+      "category": "arithmetic",
+      "eth_id": "ETH-015",
+      "severity": "medium",
+      "description": "Unsafe downcasting truncates significant bits",
+      "expected_detectors": ["safe-cast"]
+    },
+    {
+      "file": "txorigin.sol",
+      "category": "access_control",
+      "eth_id": "ETH-007",
+      "severity": "medium",
+      "description": "tx.origin used for authentication — bypassed by intermediate contract",
+      "expected_detectors": ["tx-origin"]
+    },
+    {
+      "file": "Visibility.sol",
+      "category": "access_control",
+      "eth_id": "ETH-006",
+      "severity": "high",
+      "description": "Function visibility not restricted — state-changing function is public",
+      "expected_detectors": ["unprotected-upgrade", "suicidal"]
+    },
+    {
+      "file": "Selfdestruct.sol",
+      "category": "access_control",
+      "eth_id": "ETH-008",
+      "severity": "critical",
+      "description": "Unprotected selfdestruct callable by anyone",
+      "expected_detectors": ["suicidal"]
+    },
+    {
+      "file": "Selfdestruct2.sol",
+      "category": "access_control",
+      "eth_id": "ETH-008",
+      "severity": "critical",
+      "description": "Unprotected selfdestruct variant 2",
+      "expected_detectors": ["suicidal"]
+    },
+    {
+      "file": "Delegatecall.sol",
+      "category": "access_control",
+      "eth_id": "ETH-077",
+      "severity": "critical",
+      "description": "Unsafe delegatecall to attacker-controlled address",
+      "expected_detectors": ["controlled-delegatecall", "delegatecall-loop"]
+    },
+    {
+      "file": "Uninitialized_variables.sol",
+      "category": "access_control",
+      "eth_id": "ETH-010",
+      "severity": "high",
+      "description": "Uninitialized state variable — default owner is address(0)",
+      "expected_detectors": ["uninitialized-local", "uninitialized-state"]
+    },
+    {
+      "file": "recoverERC20.sol",
+      "category": "access_control",
+      "eth_id": "ETH-006",
+      "severity": "high",
+      "description": "recoverERC20 backdoor allows owner to drain user tokens",
+      "expected_detectors": ["arbitrary-send-erc20"]
+    },
+    {
+      "file": "UnsafeCall.sol",
+      "category": "external_calls",
+      "eth_id": "ETH-020",
+      "severity": "high",
+      "description": "Unchecked return value from low-level .call()",
+      "expected_detectors": ["unchecked-lowlevel", "unchecked-send"]
+    },
+    {
+      "file": "Returnvalue.sol",
+      "category": "external_calls",
+      "eth_id": "ETH-021",
+      "severity": "medium",
+      "description": "Unchecked ERC-20 transfer return value",
+      "expected_detectors": ["unchecked-transfer"]
+    },
+    {
+      "file": "Returnfalse.sol",
+      "category": "external_calls",
+      "eth_id": "ETH-021",
+      "severity": "medium",
+      "description": "Token returns false instead of reverting — not checked",
+      "expected_detectors": ["unchecked-transfer"]
+    },
+    {
+      "file": "fee-on-transfer.sol",
+      "category": "external_calls",
+      "eth_id": "ETH-022",
+      "severity": "medium",
+      "description": "Fee-on-transfer token — amount cached not measured via balance delta",
+      "expected_detectors": []
+    },
+    {
+      "file": "payable-transfer.sol",
+      "category": "external_calls",
+      "eth_id": "ETH-020",
+      "severity": "medium",
+      "description": "payable.transfer() / send() — 2300 gas stipend can fail, not checked",
+      "expected_detectors": ["send-instead-of-call"]
+    },
+    {
+      "file": "Flashloan-flaw.sol",
+      "category": "external_calls",
+      "eth_id": "ETH-027",
+      "severity": "critical",
+      "description": "Missing flash loan callback validation — anyone can call executeOperation",
+      "expected_detectors": []
+    },
+    {
+      "file": "Price_manipulation.sol",
+      "category": "oracle",
+      "eth_id": "ETH-024",
+      "severity": "critical",
+      "description": "Price oracle manipulated via spot price — flash loan attackable",
+      "expected_detectors": []
+    },
+    {
+      "file": "Oracle-stale.sol",
+      "category": "oracle",
+      "eth_id": "ETH-039",
+      "severity": "high",
+      "description": "Chainlink latestRoundData() missing staleness check on updatedAt",
+      "expected_detectors": []
+    },
+    {
+      "file": "Slippage-deadline.sol",
+      "category": "oracle",
+      "eth_id": "ETH-067",
+      "severity": "high",
+      "description": "Missing slippage and deadline parameters on AMM swap",
+      "expected_detectors": []
+    },
+    {
+      "file": "SignatureReplay.sol",
+      "category": "signature",
+      "eth_id": "ETH-053",
+      "severity": "high",
+      "description": "Signature replay — no nonce, same sig can be reused",
+      "expected_detectors": []
+    },
+    {
+      "file": "SignatureReplayNBA.sol",
+      "category": "signature",
+      "eth_id": "ETH-053",
+      "severity": "high",
+      "description": "Signature replay variant (NBA challenge)",
+      "expected_detectors": []
+    },
+    {
+      "file": "ecrecover.sol",
+      "category": "signature",
+      "eth_id": "ETH-056",
+      "severity": "critical",
+      "description": "ecrecover returns address(0) on invalid sig — zero address not checked",
+      "expected_detectors": []
+    },
+    {
+      "file": "phantom-permit.sol",
+      "category": "signature",
+      "eth_id": "ETH-059",
+      "severity": "medium",
+      "description": "Phantom permit — permit called on token without EIP-2612 support",
+      "expected_detectors": []
+    },
+    {
+      "file": "Storage-collision.sol",
+      "category": "proxy",
+      "eth_id": "ETH-030",
+      "severity": "critical",
+      "description": "Proxy storage collision — admin slot overlaps implementation variable",
+      "expected_detectors": []
+    },
+    {
+      "file": "Storage-collision-audio.sol",
+      "category": "proxy",
+      "eth_id": "ETH-030",
+      "severity": "critical",
+      "description": "Storage collision in audio/NFT contract variant",
+      "expected_detectors": []
+    },
+    {
+      "file": "DataLocation.sol",
+      "category": "proxy",
+      "eth_id": "ETH-029",
+      "severity": "high",
+      "description": "Uninitialized storage pointer — local struct points to slot 0",
+      "expected_detectors": ["uninitialized-local"]
+    },
+    {
+      "file": "Randomness.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-073",
+      "severity": "high",
+      "description": "Weak on-chain randomness using block.timestamp or blockhash",
+      "expected_detectors": ["weak-prng"]
+    },
+    {
+      "file": "DOS.sol",
+      "category": "dos",
+      "eth_id": "ETH-060",
+      "severity": "high",
+      "description": "Denial of service via unbounded loop over dynamic array",
+      "expected_detectors": []
+    },
+    {
+      "file": "empty-loop.sol",
+      "category": "dos",
+      "eth_id": "ETH-060",
+      "severity": "medium",
+      "description": "Empty or trivially bounded loop — gas waste or logic error",
+      "expected_detectors": []
+    },
+    {
+      "file": "Bypasscontract.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-078",
+      "severity": "medium",
+      "description": "extcodesize == 0 check bypassed by calling from constructor",
+      "expected_detectors": ["is-zero"]
+    },
+    {
+      "file": "Hash-collisions.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-015",
+      "severity": "high",
+      "description": "ABI encode hash collision via dynamic types — abi.encodePacked",
+      "expected_detectors": ["encode-packed-collision"]
+    },
+    {
+      "file": "Dirtybytes.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-079",
+      "severity": "medium",
+      "description": "Dirty high bits in packed calldata types cause unexpected behaviour",
+      "expected_detectors": []
+    },
+    {
+      "file": "Privatedata.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-006",
+      "severity": "medium",
+      "description": "Private storage variables readable on-chain via storage slots",
+      "expected_detectors": []
+    },
+    {
+      "file": "Struct-deletion.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-029",
+      "severity": "medium",
+      "description": "Struct with mapping inside — delete does not clear mapping entries",
+      "expected_detectors": []
+    },
+    {
+      "file": "Array-deletion.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-029",
+      "severity": "medium",
+      "description": "Array deletion leaves gap — index shift not handled",
+      "expected_detectors": []
+    },
+    {
+      "file": "TransientStorageMisuse.t.sol",
+      "category": "reentrancy",
+      "eth_id": "ETH-081",
+      "severity": "high",
+      "description": "Transient storage (EIP-1153) misuse — TSTORE/TLOAD reentrancy guard collision",
+      "expected_detectors": []
+    },
+    {
+      "file": "self-transfer.sol",
+      "category": "external_calls",
+      "eth_id": "ETH-022",
+      "severity": "medium",
+      "description": "Self-transfer bypass inflates balance accounting",
+      "expected_detectors": []
+    },
+    {
+      "file": "Unprotected-callback.sol",
+      "category": "access_control",
+      "eth_id": "ETH-006",
+      "severity": "high",
+      "description": "Unprotected ERC721 onTokenReceived callback — anyone can trigger",
+      "expected_detectors": []
+    },
+    {
+      "file": "NFT-transfer.sol",
+      "category": "access_control",
+      "eth_id": "ETH-006",
+      "severity": "high",
+      "description": "Unauthorized NFT transfer — missing ownership check",
+      "expected_detectors": ["unprotected-nft-fork"]
+    },
+    {
+      "file": "ApproveScam.sol",
+      "category": "token",
+      "eth_id": "ETH-046",
+      "severity": "high",
+      "description": "Approval scam — unlimited approve to malicious spender",
+      "expected_detectors": []
+    },
+    {
+      "file": "Backdoor-assembly.sol",
+      "category": "access_control",
+      "eth_id": "ETH-012",
+      "severity": "critical",
+      "description": "Hidden backdoor via inline assembly — obfuscated privilege escalation",
+      "expected_detectors": ["assembly"]
+    },
+    {
+      "file": "Incorrect_sanity_checks.sol",
+      "category": "access_control",
+      "eth_id": "ETH-006",
+      "severity": "high",
+      "description": "Incorrect input validation — wrong comparison direction or missing check",
+      "expected_detectors": ["incorrect-equality"]
+    },
+    {
+      "file": "gas-price.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-074",
+      "severity": "medium",
+      "description": "tx.gasprice manipulation — miner-influenceable value used in logic",
+      "expected_detectors": ["tx-origin"]
+    },
+    {
+      "file": "return-break.sol",
+      "category": "evm_specific",
+      "eth_id": "ETH-015",
+      "severity": "medium",
+      "description": "return vs break confusion in loop — logic exits early unexpectedly",
+      "expected_detectors": []
+    },
+    {
+      "file": "Invariant.sol",
+      "category": "arithmetic",
+      "eth_id": "ETH-015",
+      "severity": "high",
+      "description": "Protocol invariant violated — accounting breaks under specific path",
+      "expected_detectors": []
+    }
+  ]
+}
