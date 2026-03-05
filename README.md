@@ -72,6 +72,27 @@ The plugin loads vulnerability knowledge from:
 - `skills/solidsecs/references/protocol-checklists.md` — Protocol-specific checks
 - `skills/solidsecs/references/report-template.md` — Report structure
 
+## Acknowledgements
+
+This plugin draws on methodology, patterns, and vulnerability knowledge from the following public resources:
+
+| Resource | Author | What it contributed |
+|----------|--------|---------------------|
+| [pashov/skills](https://github.com/pashov/skills) | @pashov | Skill structure and audit workflow patterns |
+| [trailofbits/skills](https://github.com/trailofbits/skills) | Trail of Bits | Professional audit methodology |
+| [Cyfrin/solskill](https://github.com/Cyfrin/solskill) | Cyfrin | Solidity-specific audit checklists |
+| [kadenzipfel/scv-scan](https://github.com/kadenzipfel/scv-scan) | @0xkaden | Syntactic vulnerability scanning approach |
+| [kadenzipfel/smart-contract-vulnerabilities](https://github.com/kadenzipfel/smart-contract-vulnerabilities) | @0xkaden | Vulnerability class index |
+| [kadenzipfel/protocol-vulnerabilities-index](https://github.com/kadenzipfel/protocol-vulnerabilities-index) | @0xkaden | Protocol-specific vulnerability patterns |
+| [quillai-network/qs_skills](https://github.com/quillai-network/qs_skills) | QuillAudits AI | Confidence scoring and multi-pass analysis |
+| [Archethect/sc-auditor](https://github.com/Archethect/sc-auditor) | @Archethect | MAP-HUNT-ATTACK methodology |
+| [hackenproof-public/skills](https://github.com/hackenproof-public/skills) | HackenProof | Audit skill templates |
+| [forefy/.context](https://github.com/forefy/.context) | @forefy | Three-expert reasoning model |
+| [alt-research/SolidityGuard](https://github.com/alt-research/SolidityGuard) | Alt Research | 104-pattern vulnerability taxonomy |
+| [paradigmxyz/evmbench](https://github.com/paradigmxyz/evmbench) | Paradigm | EVM benchmark methodology |
+
+The evaluation corpus uses [DeFiVulnLabs](https://github.com/SunWeb3Sec/DeFiVulnLabs) by @SunWeb3Sec.
+
 ## License
 
 MIT
