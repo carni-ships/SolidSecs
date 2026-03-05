@@ -18,8 +18,9 @@ Full-spectrum security audit: tool execution → systematic manual analysis → 
 
 Load these as needed during the audit:
 - [`references/tools.md`](references/tools.md) — CLI invocations and output parsing for every tool
-- [`references/vulnerability-taxonomy.md`](references/vulnerability-taxonomy.md) — Full vulnerability class index (ETH-001–ETH-104+)
+- [`references/vulnerability-taxonomy.md`](references/vulnerability-taxonomy.md) — Full vulnerability class index (ETH-001–ETH-110+)
 - [`references/protocol-checklists.md`](references/protocol-checklists.md) — DeFi protocol-specific checklists (AMM, Lending, Vault, Bridge, Governance)
+- [`references/secure-development-patterns.md`](references/secure-development-patterns.md) — OpenZeppelin library-first patterns and library misuse anti-patterns
 - [`references/report-template.md`](references/report-template.md) — Professional report structure
 
 ---
@@ -202,6 +203,13 @@ grep -n "approve\|Approve\|setOperator\|setApprovalForAll" $SOL_FILES
 # Each hit: trace where the target address originates (param? storage? constant?)
 grep -n "I[A-Z][a-zA-Z]*(" $SOL_FILES | grep -v "//\|interface\|event\|error"
 grep -n "\.call(\|\.delegatecall(\|\.staticcall(" $SOL_FILES
+
+# Library misuse — hand-rolled patterns that should use battle-tested libraries
+# See references/secure-development-patterns.md for full context
+grep -n "require(msg.sender ==" $SOL_FILES       # hand-rolled access control (should use Ownable/AccessControl)
+grep -n "ecrecover(" $SOL_FILES | grep -v "ECDSA" # raw ecrecover (should use ECDSA.recover)
+grep -n "bool.*locked\|bool.*entered" $SOL_FILES | grep -v "ReentrancyGuard" # custom reentrancy guard
+grep -n "\.approve(" $SOL_FILES | grep -v "forceApprove\|safeApprove\|SafeERC20" # direct approve (USDT-incompatible)
 ```
 
 ### Pass B: Semantic Analysis
@@ -265,6 +273,15 @@ For every `approve` / `safeApprove` / `setOperator` hit from Pass A:
 For every interface call on a variable target (from Pass A):
 - Trace the target address back to its origin. Is it: (a) a hardcoded constant, (b) validated against a registry/allowlist, or (c) passed in from user calldata with no validation?
 - If (c): treat as untrusted external call — apply full reentrancy, approval-theft, and return-value checks
+
+**Library Misuse Check:**
+Load `references/secure-development-patterns.md` and apply:
+- Is custom access control missing two-step transfer or zero-address checks that `Ownable2Step` provides?
+- Are raw `ecrecover` calls missing `s`-value validation and `address(0)` checks that `ECDSA.recover` provides?
+- Are ERC-20 interactions using raw `.transfer()`/`.approve()` that fail on USDT/BNB instead of SafeERC20?
+- Are upgradeable implementations missing `_disableInitializers()` in their constructors?
+- Is copied library code missing security patches that the imported version would receive?
+- Are OZ v4 hooks (`_beforeTokenTransfer`) used with OZ v5 imports where they silently never fire?
 
 **DeFi Protocol Checks:**
 Load `references/protocol-checklists.md` for the relevant protocol type and work through it systematically.
