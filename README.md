@@ -53,6 +53,7 @@ The `solidsecs` skill activates automatically when you say things like:
 | DeFi-Specific | ERC-4626 inflation, donation attacks, liquidation logic, LP pricing, governance |
 | EVM-Specific | Timestamp dependency, weak randomness, front-running, delegatecall injection |
 | Modern Patterns | EIP-7702, ERC-4337, Uniswap V4 hooks, transient storage |
+| Library Misuse | Hand-rolled access control, embedded library code, raw ecrecover, missing SafeERC20, OZ version confusion, inconsistent pausable, missing _disableInitializers |
 
 ## Protocol Checklists
 
@@ -68,8 +69,9 @@ Specialized checklists for: AMM/DEX · Lending · Vault/ERC-4626 · Bridge · Go
 
 The plugin loads vulnerability knowledge from:
 - `skills/solidsecs/references/tools.md` — CLI invocations for 12+ tools
-- `skills/solidsecs/references/vulnerability-taxonomy.md` — ETH-001–ETH-096+ index
+- `skills/solidsecs/references/vulnerability-taxonomy.md` — ETH-001–ETH-110+ index
 - `skills/solidsecs/references/protocol-checklists.md` — Protocol-specific checks
+- `skills/solidsecs/references/secure-development-patterns.md` — OpenZeppelin library-first patterns and anti-patterns
 - `skills/solidsecs/references/report-template.md` — Report structure
 
 ## Acknowledgements
@@ -79,6 +81,7 @@ This plugin draws on methodology, patterns, and vulnerability knowledge from the
 | Resource | Author | What it contributed |
 |----------|--------|---------------------|
 | [pashov/skills](https://github.com/pashov/skills) | @pashov | Skill structure and audit workflow patterns |
+| [OpenZeppelin/openzeppelin-skills](https://github.com/OpenZeppelin/openzeppelin-skills) | OpenZeppelin | Secure development patterns and library-first methodology |
 | [trailofbits/skills](https://github.com/trailofbits/skills) | Trail of Bits | Professional audit methodology |
 | [Cyfrin/solskill](https://github.com/Cyfrin/solskill) | Cyfrin | Solidity-specific audit checklists |
 | [kadenzipfel/scv-scan](https://github.com/kadenzipfel/scv-scan) | @0xkaden | Syntactic vulnerability scanning approach |

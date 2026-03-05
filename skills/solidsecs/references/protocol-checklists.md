@@ -187,8 +187,9 @@ Applies to: swap aggregators, multi-AMM routers, meta-routers, intent-based exec
 - [ ] All state-changing functions have appropriate access control
 - [ ] No use of `tx.origin` for authentication
 - [ ] Privileged functions emit events
-- [ ] 2-step ownership transfer (not instant `transferOwnership`)
+- [ ] 2-step ownership transfer via `Ownable2Step` (not hand-rolled single-step `setOwner`)
 - [ ] No functions accessible during construction that shouldn't be
+- [ ] Standard library used for access control (`Ownable`/`AccessControl`) — not hand-rolled `require(msg.sender == owner)`
 
 ### Fund Management
 - [ ] All ETH/token flows tracked in internal accounting
@@ -198,16 +199,25 @@ Applies to: swap aggregators, multi-AMM routers, meta-routers, intent-based exec
 
 ### External Calls
 - [ ] All `.call()` return values checked
-- [ ] SafeERC20 used for all ERC-20 interactions
+- [ ] SafeERC20 used for all ERC-20 interactions (not raw `.transfer()`/`.transferFrom()`)
+- [ ] `forceApprove` used instead of raw `.approve()` (USDT compatibility)
 - [ ] CEI pattern followed universally
-- [ ] `nonReentrant` on all functions with external calls
+- [ ] `nonReentrant` from `ReentrancyGuard` used (not custom `bool locked` mutex)
 - [ ] No unbounded external calls in loops
 
 ### Arithmetic
 - [ ] `unchecked` blocks verified manually
-- [ ] No division before multiplication in financial math
+- [ ] No division before multiplication in financial math — use `Math.mulDiv` for precision
 - [ ] Rounding direction favors protocol (not attacker)
-- [ ] No casting that truncates significant bits
+- [ ] No unsafe downcasts — use `SafeCast` for type narrowing
+
+### Library Usage
+- [ ] No copy-pasted library code — all OZ/Solady imports from versioned dependencies
+- [ ] `ECDSA.recover` used instead of raw `ecrecover` (validates `s` range, `address(0)`, `v` value)
+- [ ] OZ version consistent — no v4 hooks (`_beforeTokenTransfer`) mixed with v5 base contracts
+- [ ] Upgradeable implementations have `_disableInitializers()` in constructor
+- [ ] ERC-7201 namespaced storage used in upgradeable contracts (not sequential layout)
+- [ ] `Pausable` modifier applied consistently to ALL critical functions (not just deposit)
 
 ### Events & Logging
 - [ ] All state changes emit events
