@@ -66,6 +66,9 @@ find . -name "*.sol" -not -path "*/node_modules/*" -not -path "*/lib/*" | head -
 
 ```bash
 which slither aderyn myth medusa echidna halmos forge solhint semgrep wake pyrometer 2>/dev/null
+
+# Nemesis is a Claude Code agent (no binary) — check for project install
+ls .claude/commands/nemesis.md 2>/dev/null && echo "nemesis: available" || echo "nemesis: not installed"
 ```
 
 Record which tools are available. Load `references/tools.md` for exact invocations.
@@ -90,6 +93,7 @@ Run all available tools. Do **not** wait for one to finish before starting the n
 | 1 | **Aderyn** | Missing access controls, common patterns |
 | 2 | **Mythril** | Bytecode-level, symbolic execution |
 | 2 | **Semgrep** | Pattern-based DeFi rules |
+| 2 | **Nemesis** | Logic bugs + state desync (AI-agent, if installed) |
 | 3 | **solhint** | Best practices, style violations |
 | 3 | **Halmos** | Formal verification of existing tests |
 | 4 | **Echidna/Medusa** | Property-based fuzzing (needs test harness) |
@@ -97,6 +101,21 @@ Run all available tools. Do **not** wait for one to finish before starting the n
 | 5 | **Wake** | Python-based analysis framework |
 
 See `references/tools.md` for exact CLI commands and output format notes.
+
+### Nemesis Auditor (if installed)
+
+If `.claude/commands/nemesis.md` is present in the project, run after static tools:
+
+```
+/nemesis
+```
+
+Or target a specific contract:
+```
+/nemesis --contract [ContractName]
+```
+
+Nemesis runs two complementary passes — Feynman (logic bugs) and State Inconsistency (state desync) — iteratively until convergence. Findings are written to `.audit/findings/`. See `references/tools.md` for full command reference.
 
 ### Tool Output Handling
 

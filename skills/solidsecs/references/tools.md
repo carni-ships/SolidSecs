@@ -357,6 +357,49 @@ heimdall disassemble 0xContractAddress
 
 ---
 
+## Nemesis Auditor (AI-Agent)
+
+**Source:** https://github.com/0xiehnnkta/nemesis-auditor
+**Type:** Claude Code slash command agent (not a standalone binary)
+
+**Install (per-project):**
+```bash
+git clone https://github.com/0xiehnnkta/nemesis-auditor.git
+cp -r nemesis-auditor/.claude /path/to/your-project/
+rm -rf nemesis-auditor
+```
+
+**Detect (in the target project):**
+```bash
+ls .claude/commands/nemesis.md 2>/dev/null && echo "nemesis: available" || echo "nemesis: not installed"
+```
+
+**Usage (run from within the target project in Claude Code):**
+
+| Command | Purpose |
+|---------|---------|
+| `/nemesis` | Full iterative audit (Feynman + State passes) until convergence |
+| `/nemesis --pass1` | Feynman Auditor only — first-principles logic bug detection |
+| `/nemesis --pass2` | State Inconsistency Auditor only — coupled state desync detection |
+| `/nemesis --continue` | Resume an interrupted audit |
+| `/nemesis --contract [name]` | Target a single contract |
+| `/feynman` | Standalone Feynman analysis |
+| `/state-audit` | Standalone state inconsistency analysis |
+
+**What it finds:**
+- **Feynman pass (Pass 1):** Business logic bugs — challenges every assumption, exposes incorrect invariant beliefs, finds semantic errors static tools miss
+- **State Inconsistency pass (Pass 2):** Coupled state desync, mutation path gaps, operation ordering issues, parallel code path inconsistencies, stale state accumulation, defensive code masking broken invariants
+
+**Output:** Findings written to `.audit/findings/` with severity (CRITICAL/HIGH/MEDIUM/LOW), root cause, trigger sequence, impact, and recommended fix.
+
+**Interpretation notes:**
+- Complements static tools — designed to find logic bugs and state desync that Slither/Mythril miss
+- Two passes are iterative and feed each other; run full `/nemesis` for best coverage
+- Supports Solidity, Move, Rust, Go, C++, Python, TypeScript
+- Run after static tools so the agent can cross-reference tool findings
+
+---
+
 ## Tool Matrix
 
 | Tool | Speed | FP Rate | Best For |
@@ -371,3 +414,4 @@ heimdall disassemble 0xContractAddress
 | Medusa | Slow | Near-zero | Parallel fuzzing |
 | Forge | Fast | Near-zero | Existing test suite |
 | Wake | Med | Med | Python-based analysis |
+| Nemesis | Med | Low | Logic bugs, state desync (AI-agent) |
