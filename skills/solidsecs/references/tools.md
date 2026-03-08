@@ -357,6 +357,80 @@ heimdall disassemble 0xContractAddress
 
 ---
 
+## Solodit — Prior Art Search (claudit MCP)
+
+**Source:** https://github.com/marchev/claudit
+**Type:** MCP server — provides `mcp__solodit__search_findings`, `mcp__solodit__get_finding`, `mcp__solodit__get_filter_options`
+**Database:** Solodit — 20,000+ smart contract security findings from real audits
+
+**Install (one-time, user scope):**
+```bash
+claude mcp add --scope user --transport stdio solodit \
+  --env SOLODIT_API_KEY=sk_your_key_here \
+  -- npx -y @marchev/claudit
+```
+Get your API key at https://solodit.cyfrin.io.
+
+### `mcp__solodit__search_findings`
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `keywords` | string | Text search in title and content |
+| `severity` | string[] | `HIGH` `MEDIUM` `LOW` `GAS` |
+| `firms` | string[] | Audit firm names (e.g. `["Sherlock", "Code4rena"]`) |
+| `tags` | string[] | Vulnerability tags (e.g. `["Reentrancy", "Oracle"]`) |
+| `language` | string | `Solidity`, `Rust`, `Move`, etc. |
+| `protocol` | string | Protocol name (partial match) |
+| `reported` | string | `30` `60` `90` `alltime` |
+| `sort_by` | string | `Recency` `Quality` `Rarity` |
+| `page_size` | int | Default 10, max 100 |
+| `advanced_filters` | object | `quality_score`, `rarity_score`, `user`, `max_finders` |
+
+**Common patterns:**
+```
+# Broad vulnerability class
+mcp__solodit__search_findings(keywords="reentrancy", severity=["HIGH"], sort_by="Quality")
+
+# DeFi protocol type
+mcp__solodit__search_findings(tags=["Flash Loan"], severity=["HIGH", "MEDIUM"], sort_by="Quality")
+
+# Specific auditor's findings
+mcp__solodit__search_findings(advanced_filters={"user": "0x52"}, severity=["HIGH"])
+
+# Novel/rare bugs only
+mcp__solodit__search_findings(tags=["Oracle"], advanced_filters={"quality_score": 4, "max_finders": 1})
+
+# Discover valid tag/firm values
+mcp__solodit__get_filter_options()
+```
+
+### `mcp__solodit__get_finding`
+
+```
+mcp__solodit__get_finding(id=12345)               # by numeric ID
+mcp__solodit__get_finding(id="https://solodit.cyfrin.io/issues/...")  # by URL
+```
+
+Returns full finding: title, severity, description, code snippet, recommendation.
+
+### Formatting Results — MANDATORY
+
+Do NOT use tables. Include the Solodit URL for every finding:
+
+```
+1. **[HIGH] Oracle price manipulation via flash loan**
+   Sherlock (Aave v3) · Quality: 4.5/5 · Finders: 1
+   → https://solodit.cyfrin.io/issues/...
+```
+
+**Output interpretation:**
+- `quality_score` 4–5 = well-written, high-signal — read full details
+- `rarity_score` high = unusual pattern — worth deeper comparison
+- Solo findings (`max_finders=1`) = likely novel; compare carefully
+- Many similar HIGH findings = well-known pattern; severity validated by real-world data
+
+---
+
 ## Nemesis Auditor (AI-Agent)
 
 **Source:** https://github.com/0xiehnnkta/nemesis-auditor
@@ -408,6 +482,7 @@ ls .claude/commands/nemesis.md 2>/dev/null && echo "nemesis: available" || echo 
 | Aderyn | Fast | Low | Access control, Cyfrin patterns |
 | Mythril | Slow | Low-Med | Bytecode-level, arithmetic |
 | Semgrep | Fast | Low | Known patterns, DeFi rules |
+| Solodit | Fast | N/A | Prior art, severity validation, real-world findings (MCP) |
 | Solhint | Fast | Low | Best practices |
 | Halmos | Med | Near-zero | Invariant proofs |
 | Echidna | Slow | Near-zero | Property violations |

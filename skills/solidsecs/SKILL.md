@@ -71,6 +71,13 @@ which slither aderyn myth medusa echidna halmos forge solhint semgrep wake pyrom
 ls .claude/commands/nemesis.md 2>/dev/null && echo "nemesis: available" || echo "nemesis: not installed"
 ```
 
+**Solodit MCP (claudit):** If `mcp__solodit__search_findings` is available, Solodit prior-art search is active. No binary check needed — it's an MCP tool. Install with:
+```bash
+claude mcp add --scope user --transport stdio solodit \
+  --env SOLODIT_API_KEY=sk_your_key_here \
+  -- npx -y @marchev/claudit
+```
+
 Record which tools are available. Load `references/tools.md` for exact invocations.
 
 > **Tool absence escalation:** When a priority-1 tool is missing, manually cover the vulnerability classes it specializes in:
@@ -94,6 +101,7 @@ Run all available tools. Do **not** wait for one to finish before starting the n
 | 2 | **Mythril** | Bytecode-level, symbolic execution |
 | 2 | **Semgrep** | Pattern-based DeFi rules |
 | 2 | **Nemesis** | Logic bugs + state desync (AI-agent, if installed) |
+| 2 | **Solodit** | Prior art from 20k+ real audit findings (MCP, if installed) |
 | 3 | **solhint** | Best practices, style violations |
 | 3 | **Halmos** | Formal verification of existing tests |
 | 4 | **Echidna/Medusa** | Property-based fuzzing (needs test harness) |
@@ -304,6 +312,51 @@ Load `references/secure-development-patterns.md` and apply:
 
 **DeFi Protocol Checks:**
 Load `references/protocol-checklists.md` for the relevant protocol type and work through it systematically.
+
+### Pass C: Prior Art — Solodit Research (if MCP available)
+
+After completing Pass B, use Solodit to cross-reference every candidate finding against real audit history. This validates severity, surfaces missed variants, and provides citation evidence for the report.
+
+**For each High/Critical candidate finding:**
+```
+mcp__solodit__search_findings(
+  keywords="<vulnerability type> <protocol pattern>",
+  severity=["HIGH", "CRITICAL"],
+  sort_by="Quality"
+)
+```
+
+**Useful search patterns:**
+
+```
+# Reentrancy in a specific protocol type
+search_findings(keywords="reentrancy lending protocol", severity=["HIGH"])
+
+# Oracle manipulation
+search_findings(tags=["Oracle", "Price Manipulation"], severity=["HIGH", "MEDIUM"], sort_by="Quality")
+
+# Flash loan attack variants
+search_findings(keywords="flash loan", tags=["Flash Loan"], severity=["HIGH"])
+
+# Access control on initialize
+search_findings(keywords="initialize access control proxy", severity=["HIGH", "CRITICAL"])
+
+# Signature replay
+search_findings(tags=["Signature Replay", "Replay Attack"], sort_by="Quality")
+
+# Discover valid tags and firms first
+mcp__solodit__get_filter_options()
+```
+
+**Interpret results:**
+- **Many similar HIGH findings** → well-known pattern; severity validated; cite top findings in report
+- **Rare / no prior findings** → novel or niche; apply extra skepticism OR flag as noteworthy
+- **Finding has quality score 4–5** → well-written, high-signal; read full details via `get_finding`
+- **Solo findings (max_finders=1)** → more likely novel; compare carefully against your candidate
+
+Use `mcp__solodit__get_finding(id)` to pull full write-ups for the top 1–2 most relevant matches and reference them in your report.
+
+See `references/tools.md` for full Solodit MCP command reference.
 
 ---
 
