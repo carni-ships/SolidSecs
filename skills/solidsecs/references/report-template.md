@@ -56,13 +56,15 @@ Copy this template and fill in during Phase 6 of the audit.
 
 ## Findings Summary
 
-| ID | Title | Severity | Confidence | Status |
-|----|-------|----------|------------|--------|
-| CRIT-01 | [title] | 🔴 Critical | High | Open |
-| HIGH-01 | [title] | 🟠 High | High | Open |
-| MED-01 | [title] | 🟡 Medium | Medium | Open |
-| LOW-01 | [title] | 🔵 Low | High | Open |
-| INFO-01 | [title] | ⚪ Info | — | Open |
+| ID | Title | Severity | Verdict | Status |
+|----|-------|----------|---------|--------|
+| C-01 | [title] | 🔴 Critical | CONFIRMED | Open |
+| H-01 | [title] | 🟠 High | CONFIRMED | Open |
+| M-01 | [title] | 🟡 Medium | PARTIAL | Open |
+| L-01 | [title] | 🔵 Low | CONFIRMED | Open |
+| I-01 | [title] | ⚪ Info | — | Open |
+
+> **ID convention:** `C-##` Critical, `H-##` High, `M-##` Medium, `L-##` Low, `I-##` Informational. Sequential within each severity. No internal pipeline IDs in client-facing report.
 
 ---
 
@@ -70,10 +72,13 @@ Copy this template and fill in during Phase 6 of the audit.
 
 ---
 
-### [CRIT-01] [Title]
+### [C-01] [Title]
 
 **Severity:** 🔴 Critical
-**Confidence:** High
+**Verdict:** CONFIRMED
+**Confidence Score:** 0.87
+**Depth Evidence:** `[POC-PASS]` `[TRACE:deposit→callback→reenter]` `[BOUNDARY:amount=1e18]`
+**Rules Applied:** R5 (combinatorial), R15 (flash loan precondition)
 **Category:** [Reentrancy / Access Control / Arithmetic / etc.]
 **Vulnerability Class:** [ETH-XXX if applicable]
 **Location:** `contracts/MyContract.sol:L123–L145`
@@ -144,10 +149,13 @@ function withdraw(uint256 amount) external nonReentrant {
 
 ---
 
-### [HIGH-01] [Title]
+### [H-01] [Title]
 
 **Severity:** 🟠 High
-**Confidence:** High
+**Verdict:** CONFIRMED
+**Confidence Score:** 0.75
+**Depth Evidence:** `[TRACE:path→outcome]` `[BOUNDARY:X=val]`
+**Rules Applied:** [R-N, R-N]
 **Category:** [Category]
 **Location:** `contracts/MyContract.sol:L67`
 **Tools:** Manual Analysis
@@ -163,10 +171,13 @@ function withdraw(uint256 amount) external nonReentrant {
 
 ---
 
-### [MED-01] [Title]
+### [M-01] [Title]
 
 **Severity:** 🟡 Medium
-**Confidence:** Medium
+**Verdict:** PARTIAL
+**Confidence Score:** 0.55
+**Depth Evidence:** `[CODE-TRACE]`
+**Rules Applied:** [R-N]
 **Category:** [Category]
 **Location:** `contracts/MyContract.sol:L89`
 
@@ -236,6 +247,16 @@ Findings represent the state of the code at the audited commit. Changes after th
 
 ## Severity Classification Reference
 
+### Severity Matrix (Impact × Likelihood)
+
+| | High Impact | Medium Impact | Low Impact |
+|-|-------------|---------------|------------|
+| **High Likelihood** | 🔴 CRITICAL | 🟠 HIGH | 🟡 MEDIUM |
+| **Medium Likelihood** | 🟠 HIGH | 🟡 MEDIUM | 🔵 LOW |
+| **Low Likelihood** | 🟡 MEDIUM | 🔵 LOW | ⚪ INFO |
+
+### Severity Definitions
+
 | Severity | Criteria |
 |----------|----------|
 | 🔴 Critical | Direct loss of funds, complete protocol takeover, permanent freeze of all assets. Exploitable by anyone without special conditions. |
@@ -244,10 +265,33 @@ Findings represent the state of the code at the audited commit. Changes after th
 | 🔵 Low | Best practice violations, minor issues, gas inefficiencies with security implications, events missing on sensitive operations. |
 | ⚪ Info | Code quality, documentation, style, non-security observations. |
 
-## Confidence Levels
+### Downgrade Modifiers
 
-| Level | Meaning |
+Apply these before finalizing severity. Each modifier reduces severity by **1 tier** (e.g. Critical → High):
+
+| Condition | Modifier |
+|-----------|----------|
+| On-chain-only exploit (no off-chain component, no front-running) | −1 tier |
+| View function cap (state read, not written) | Floor at Medium |
+| FULLY_TRUSTED actor acting maliciously (explicitly trusted in scope) | −1 tier, floor Informational |
+| Requires 2+ independent unlikely preconditions simultaneously | −1 tier |
+| Same root cause as another finding (consolidate) | Use highest severity, remove duplicate |
+
+> **Root-cause consolidation:** Findings sharing the same root cause must be merged into a single finding with the highest applicable severity. Do not report the same underlying bug multiple times.
+
+### Verdict Definitions
+
+| Verdict | Meaning |
+|---------|---------|
+| **CONFIRMED** | Concrete exploit path traced end-to-end; `[POC-PASS]` or `[MEDUSA-PASS]` obtained, or full `[TRACE:]` with no blocking preconditions |
+| **PARTIAL** | Plausible attack path; some conditions uncertain but feasible; report with caveats |
+| **CONTESTED** | Real uncertainty about exploitability; apply R4 adversarial assumption; report Medium+ with CONTESTED label |
+| **REFUTED** | Cannot reach vulnerable code under any realistic conditions (requires code evidence — external contract behavior alone cannot support REFUTED) |
+
+### Confidence Score Reference
+
+| Range | Meaning |
 |-------|---------|
-| High | Concrete attack path confirmed, code fully traced, no unrealistic assumptions |
-| Medium | Plausible attack path, some conditions required that are feasible |
-| Low | Theoretical, requires specific configuration or external actor behavior |
+| 0.70–1.0 | CONFIRMED — strong evidence, report |
+| 0.40–0.69 | PARTIAL — attempt PoC or variant; if still uncertain → CONTESTED |
+| < 0.40 | CONTESTED — apply devil's advocate, Solodit search, re-evaluate |

@@ -54,32 +54,58 @@ Applies to: swap aggregators, multi-AMM routers, meta-routers, intent-based exec
 
 ## Lending / Borrowing
 
+### Health Factor & Liquidation
 - [ ] Collateral ratio: correct calculation, no precision loss?
+- [ ] **Health factor boundary (HIGH risk):** What happens at exactly `healthFactor == 1.0`? Can a borrower manipulate state to be simultaneously liquidatable and not-liquidatable?
+- [ ] **Health factor rounding:** Does rounding direction of health factor calculation favor borrower (dangerous) or protocol?
 - [ ] Liquidation logic: can undercollateralized positions always be liquidated profitably?
-- [ ] Liquidation incentive: is the incentive enough for liquidators? Is there a max?
+- [ ] Liquidation incentive: is the incentive enough for liquidators? Is there a max (to cap bad debt)?
+- [ ] **Liquidation DoS:** Can a borrower front-run liquidation to become healthy again? Can they revert the liquidator's tx (R2)?
 - [ ] Bad debt: can bad debt accumulate without a recovery mechanism?
-- [ ] Interest accrual: is `accrueInterest()` called before every state-changing operation?
-- [ ] Oracle: correct price source for collateral and debt assets?
-- [ ] Oracle staleness: are Chainlink answers checked for freshness?
-- [ ] Oracle min/max: are circuit breaker bounds checked?
-- [ ] Flash loan + oracle: can oracle be manipulated in the same tx?
-- [ ] Borrow cap: is there a borrow cap? Can it be bypassed?
+- [ ] **Bad debt socialization:** When bad debt is socialized across depositors, is the accounting correct? Can bad debt be created by liquidating more collateral than exists?
+
+### Interest Accrual
+- [ ] Is `accrueInterest()` called before every state-changing operation?
+- [ ] **Accrual frequency:** Is interest rate used correctly (per-block vs per-second)? Can an attacker accrue interest 0 times to borrow at stale rates?
+- [ ] Interest rate model: is rate capped to prevent overflow? What happens at 100% utilization?
+- [ ] Debt token math: can interest-bearing debt tokens be used to manipulate share price (first-depositor attack)?
+
+### Oracle & Pricing
+- [ ] Correct price source for collateral and debt assets? (set ORACLE flag if yes)
+- [ ] Flash loan + oracle: can oracle be manipulated in same tx to avoid liquidation or drain collateral?
+- [ ] **Asymmetric pause (HIGH risk):** If borrowing is paused but repayment is not (or vice versa), do trapped borrowers continue to accrue interest they cannot repay?
+
+### Caps & Isolation
+- [ ] Borrow cap: is there a borrow cap? Can it be bypassed via flash loan?
 - [ ] Isolation mode: can borrowing isolated assets affect global state?
-- [ ] Debt token: interest-bearing debt tokens — can they be used to manipulate share price?
 - [ ] Insolvency path: what happens when `totalDebt > totalCollateral`?
 
 ---
 
 ## Vault / Yield (ERC-4626)
 
-- [ ] Share inflation: is first-depositor share inflation attack mitigated (virtual shares)?
-- [ ] Rounding direction: `convertToShares` rounds DOWN (protects protocol), `convertToAssets` rounds DOWN (protects protocol)?
+### Share Price Integrity
+- [ ] Share inflation: is first-depositor share inflation attack mitigated (virtual shares / `_decimalsOffset()`)?
+- [ ] Rounding direction: `convertToShares` rounds DOWN (protects protocol), `convertToAssets` rounds DOWN?
 - [ ] Donation attack: is `totalAssets()` using internal accounting or `balanceOf(address(this))`?
+- [ ] **Share price under loss event:** If the strategy loses funds, does share price drop correctly? Can any user exit at old price before the update?
+- [ ] **Time-decay state consistency:** If yield accrues over time (e.g., locked rewards, vesting), is share price consistent between the moment yield is earned and when it's distributed?
+
+### Fee Accounting
+- [ ] Performance fees calculated correctly? Can fees be front-run (deposit before fee, withdraw after)?
+- [ ] **Fee solvency under stress (HIGH risk):** Can accrued fees exceed available vault assets under a loss event? Who pays the fee when the vault is underwater?
+- [ ] **Fee extraction vs exchange rate:** Does collecting fees reduce exchange rate for remaining depositors in a way that's not accounted for?
+- [ ] Management fees: do they accrue even when vault is paused?
+
+### First Depositor / Dead-Weight Share
+- [ ] ERC-4626 compliance: do preview functions (`previewDeposit`, `previewWithdraw`) match actual execution for all amounts including `amount = 1`?
 - [ ] Deposit/withdraw limits: are `maxDeposit`, `maxWithdraw`, `maxMint`, `maxRedeem` correct?
-- [ ] ERC-4626 compliance: do preview functions match actual execution?
-- [ ] Emergency pause: can withdrawals be paused indefinitely by owner?
+- [ ] **Dead-weight shares:** Can virtual share offset be drained via inflation attack across many small deposits?
+
+### Withdrawal Fairness
+- [ ] **Withdrawal fairness (HIGH risk):** Can a depositor who withdraws first get more assets than a depositor who waits, when the vault is under stress?
+- [ ] Emergency pause: can withdrawals be paused indefinitely by owner? Is there a timelock?
 - [ ] Strategy risk: if yield comes from external protocol, what happens if that protocol is exploited?
-- [ ] Fee accounting: performance fees calculated correctly? Can fees be front-run?
 - [ ] Reentrancy: vault operations before/after external yield strategy calls?
 - [ ] Asset/share mismatch: can assets be added to vault without minting shares?
 
@@ -178,6 +204,92 @@ Applies to: swap aggregators, multi-AMM routers, meta-routers, intent-based exec
 - [ ] Metadata manipulation: is tokenURI mutable by owner? Can it be set to phishing URL?
 - [ ] Mint access: can tokens be freely minted by anyone?
 - [ ] Approval griefing: can approvals be front-run?
+
+---
+
+## Flash Loan Analysis
+
+Load when `FLASH_LOAN` flag is set (entry points or callbacks detected). Apply sequentially — do not skip.
+
+> Steps 5 and 5b are where HIGH/CRITICAL findings most commonly hide.
+
+**Step 1: External Flash Susceptibility Check**
+- [ ] Map every function that reads `balanceOf(address(this))`, `totalSupply()`, or a reserve/price variable
+- [ ] For each: can a flash loan modify that variable before the function reads it?
+- [ ] Does the function update state that persists after the tx? (If yes: flash loan damage is permanent)
+
+**Step 2: Flash-Accessible State Inventory**
+- [ ] List every storage slot that can change within a single tx via flash loan entry points
+- [ ] For each slot: which protocol functions consume it as a decision input?
+- [ ] Map: flash loan → state mutation → downstream function that trusts the state
+
+**Step 3: Atomic Attack Sequence Modeling**
+- [ ] Construct the full attack sequence: borrow → manipulate → exploit → repay
+- [ ] Trace each step through actual code; verify state is not restored before exploitation
+- [ ] Check whether multiple functions can be chained in a single `executeOperation` callback
+
+**Step 4: Cross-Function Flash Chains**
+- [ ] Can flash loan → deposit → withdraw → repay steal funds in one tx?
+- [ ] Can flash loan → stake → claim rewards → unstake bypass lockup?
+- [ ] Does any multi-step user flow become a same-tx exploit when batched via flash loan?
+- [ ] **Flash + Donation (if `BALANCE_DEPENDENT` flag):** Can flash-borrowed tokens be donated to manipulate `totalAssets()` or `reserve` before an exploit step?
+
+**Step 5: Flash Loan Defense Audit**
+- [ ] Where are the flash loan defenses? (CEI, reentrancy guard, per-block state check, snapshot-based voting)
+- [ ] Does each defense actually cover the attack surface identified in Steps 1–4?
+- [ ] Can the defense be bypassed? (e.g., reentrancy guard doesn't cover cross-function path)
+
+**Step 5b: Defense Parity Audit**
+- [ ] For every exploitable function identified in Steps 1–4: is it covered by a defense?
+- [ ] Any function NOT covered by a defense that touches flash-accessible state → flag as finding
+
+---
+
+## Oracle Analysis
+
+Load when `ORACLE` flag is set. Apply sequentially — do not skip Step 3d.
+
+> Steps 6 and 5c are where HIGH/CRITICAL findings most commonly hide.
+
+**Step 1: Oracle Inventory**
+- [ ] List every price source in the codebase: Chainlink feeds, Uniswap TWAP, custom oracles, `slot0`, LP reserves
+- [ ] For each: what assets does it price? What functions consume it?
+- [ ] Map: oracle call → price variable → downstream decision (liquidation, collateral ratio, swap)
+
+**Step 2: Staleness Analysis**
+- [ ] Is `latestRoundData()` called? Check: is `updatedAt` compared against `block.timestamp`?
+- [ ] What is the configured `MAX_STALENESS`? Is it appropriate for this asset's heartbeat?
+- [ ] On L2: is Chainlink sequencer uptime feed checked before using oracle price?
+- [ ] Is there a heartbeat check AND a deviation threshold check?
+
+**Step 3: Decimal Normalization Audit**
+
+**3d (MANDATORY grep sweep):**
+```bash
+grep -n "10\*\*\|decimals()\|1e[0-9]\|normaliz\|PRICE_PRECISION\|ORACLE_DECIMALS" \
+  $(find . -name "*.sol" -not -path "*/test*" -not -path "*/lib/*")
+```
+- [ ] For every hit: trace the price value through every arithmetic operation to its final use
+- [ ] Are all prices normalized to the same decimal scale before comparison or calculation?
+- [ ] Can a token with non-18 decimals cause mispricing? (e.g., USDC = 6 decimals, WBTC = 8 decimals)
+
+**Step 4: TWAP-Specific Analysis** (if Uniswap V2/V3 TWAP used)
+- [ ] What is the TWAP observation window? (minimum 30 min for meaningful manipulation resistance)
+- [ ] For Uniswap V3: `observe()` called correctly with target secondsAgo values?
+- [ ] Is `sqrtPriceX96` from `slot0` used anywhere? (`slot0` is the *current* spot price — manipulable)
+- [ ] Can an attacker move the TWAP gradually over multiple blocks before exploiting?
+
+**Step 5: Oracle Weight / Threshold Boundaries**
+- [ ] If multiple oracles are combined (weighted average, median): can one manipulable oracle dominate?
+- [ ] **5b:** What happens when oracle price = 0? Does `price > 0` assertion exist?
+- [ ] **5c (HIGH/CRITICAL risk):** What is the max price deviation that liquidation logic tolerates? Can an attacker profit by pushing price to a circuit breaker bound (`minAnswer`/`maxAnswer`)?
+
+**Step 6: Oracle Failure Modes (HIGH/CRITICAL most common here)**
+- [ ] Oracle returns stale price during network congestion → liquidations blocked or triggered incorrectly
+- [ ] Oracle circuit breaker clamps price (Chainlink `minAnswer`) → collateral mispriced during crash
+- [ ] Oracle decimals mismatch → systematic 10^N over/underpricing
+- [ ] `int256` price cast to `uint256` without checking for negative → huge phantom price
+- [ ] Oracle removed from protocol → functions consuming it revert permanently (DoS)
 
 ---
 

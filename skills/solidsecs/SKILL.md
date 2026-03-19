@@ -19,7 +19,10 @@ Full-spectrum security audit: tool execution → systematic manual analysis → 
 Load these as needed during the audit:
 - [`references/tools.md`](references/tools.md) — CLI invocations and output parsing for every tool
 - [`references/vulnerability-taxonomy.md`](references/vulnerability-taxonomy.md) — Full vulnerability class index (ETH-001–ETH-110+)
-- [`references/protocol-checklists.md`](references/protocol-checklists.md) — DeFi protocol-specific checklists (AMM, Lending, Vault, Bridge, Governance)
+- [`references/protocol-checklists.md`](references/protocol-checklists.md) — DeFi protocol-specific checklists (AMM, Lending, Vault, Bridge, Governance, Flash Loan, Oracle)
+- [`references/security-rules.md`](references/security-rules.md) — R1–R19 universal analysis rules (confidence, escalation, severity calibration, semantic drift, symmetric operation)
+- [`references/devil-advocate-protocol.md`](references/devil-advocate-protocol.md) — Formal 6-dimension DA scoring (guards, reentrancy, access, by-design, economics, dry-run)
+- [`references/hard-negatives.md`](references/hard-negatives.md) — Safe patterns that resemble vulnerabilities (graduated handling rule)
 - [`references/secure-development-patterns.md`](references/secure-development-patterns.md) — OpenZeppelin library-first patterns and library misuse anti-patterns
 - [`references/report-template.md`](references/report-template.md) — Professional report structure
 
@@ -153,6 +156,36 @@ Document:
 - **Upgrade functions** — upgradeTo, initialize, reinitialize
 - **Callback/hook receivers** — receive(), fallback(), onERC721Received(), uniswapV3SwapCallback(), etc.
 
+### Protocol Classification (Injectable Skills)
+
+Based on code patterns found in Phase 0 and tool output, set protocol type flags. Each flag activates a targeted deep-dive section in `references/protocol-checklists.md`.
+
+```bash
+SOL_FILES=$(find . -name "*.sol" -not -path "*/test*" -not -path "*/lib/*")
+
+# FLASH_LOAN — flash loan entry points or callbacks present
+grep -lE "flashLoan|executeOperation|uniswapV3FlashCallback|pancakeCall|onFlashLoan" $SOL_FILES
+
+# ORACLE — price oracle consumption present
+grep -lE "latestRoundData|latestAnswer|getPrice|slot0|sqrtPriceX96|TWAP|twapPrice" $SOL_FILES
+
+# vault — ERC-4626 or share-based vault patterns
+grep -lE "convertToShares|convertToAssets|totalAssets|previewDeposit|previewMint" $SOL_FILES
+
+# lending — borrowing and liquidation patterns
+grep -lE "liquidate|borrow|repay|collateral|LTV|healthFactor|interestRate|debtToken" $SOL_FILES
+
+# governance — on-chain voting or proposal system
+grep -lE "Governor|Timelock|propose|castVote|quorum|delegate\b" $SOL_FILES
+
+# dex_integration — protocol USES a DEX (not IS a DEX)
+grep -lE "IUniswapV2Router|IUniswapV3|addLiquidity|swapExactTokens|amountOutMin" $SOL_FILES
+```
+
+For each flag set, load the corresponding section from `references/protocol-checklists.md` and work through it systematically during Phase 3 Pass B. Do **not** load all sections — only the ones triggered by actual code patterns.
+
+> Never merge `FLASH_LOAN` or `ORACLE` analysis with other protocol work — they require dedicated sequential analysis.
+
 ### Invariant Extraction
 
 Identify the protocol's core invariants — relationships that must always hold:
@@ -162,6 +195,17 @@ Identify the protocol's core invariants — relationships that must always hold:
 - State machine: "funds can only flow in state Y"
 
 These become the target of your attack phase.
+
+### Config Semantics Inventory (R18)
+
+For each config/parameter variable found in Phase 2, record:
+
+| Variable | Unit (`percent`/`basis_points`/`divisor`/`wei`/`seconds`/`raw`) | Valid range | Consumers |
+|----------|----------------------------------------------------------------|-------------|-----------|
+| `fee` | basis_points | 0–10000 | `_takeFee()`, `previewDeposit()` |
+| ... | ... | ... | ... |
+
+Flag any variable where consumers use different divisors or scales — this is a semantic drift bug (R18).
 
 ### Privilege Boundary Map
 
@@ -311,7 +355,35 @@ Load `references/secure-development-patterns.md` and apply:
 - Are OZ v4 hooks (`_beforeTokenTransfer`) used with OZ v5 imports where they silently never fire?
 
 **DeFi Protocol Checks:**
-Load `references/protocol-checklists.md` for the relevant protocol type and work through it systematically.
+Load `references/protocol-checklists.md` for the protocol types flagged in Phase 2. Apply `FLASH_LOAN` and `ORACLE` sections if those flags are set — these are sequential and must not be skipped.
+
+**Universal Rule Application:**
+After completing Pass B checks, apply `references/security-rules.md` R1–R19 as a final sweep. Specifically:
+- R5 (combinatorial): have you evaluated all-users-affected scenario?
+- R8 (cached params): are there multi-step operations with stale state?
+- R11 (donation): can unsolicited token transfers manipulate accounting?
+- R14 (cross-variable): does each setter maintain all dependent invariants?
+- R18 (config unit semantics): cross-check the config semantics inventory from Phase 2 — any consumer using a different unit than the canonical definition?
+- R19 (symmetric operation): for each deposit/withdraw or stake/unstake pair, does `deposit(X) → withdraw()` return exactly `X - declared_fees`?
+
+### Pass D: Semantic Drift Sweep
+
+Run this sweep for every config variable identified in Phase 2's config semantics inventory:
+
+```bash
+# For each fee/rate/basis variable, find all formula usages
+grep -n "taxCut\|feeRate\|rewardRate\|basisPoints\|percent\|divisor" \
+  $(find . -name "*.sol" -not -path "*/test*" -not -path "*/lib/*")
+```
+
+For each hit, verify:
+- [ ] Divisor used matches the variable's declared unit (R18)
+- [ ] Same formula not duplicated with a different constant (semantic drift)
+- [ ] Magic numbers (`100`, `10_000`, `1e18`) consistent across all uses
+- [ ] Per-second and per-block rate calculations not mixed
+- [ ] Chainlink oracle decimals explicitly normalized before use (8-decimal feed + 18-decimal math)
+
+Check `references/hard-negatives.md` Category 5 before flagging — some apparent drifts are safe by design.
 
 ### Pass C: Prior Art — Solodit Research (if MCP available)
 
@@ -370,20 +442,75 @@ For every High/Critical finding from Phases 1-3, attempt to:
 4. **Attempt to falsify** — what assumptions must hold for this to be exploitable? Are those assumptions realistic?
 5. **Write a PoC sketch** (or full Foundry test for Deep audits)
 
-### Confidence Scoring
+### Confidence Scoring (4-Axis Model)
 
-Assign each finding a confidence score:
+Assign each finding a composite confidence score using these four axes:
 
-| Score | Meaning |
-|-------|---------|
-| High (0.8–1.0) | Concrete exploit path confirmed, no unrealistic assumptions |
-| Medium (0.5–0.79) | Plausible path, some conditions required |
-| Low (0.2–0.49) | Theoretical, requires specific configuration or external factors |
-| Noise (<0.2) | Discard or downgrade to Informational |
+**Axis 1 — Evidence (weight: 25%)**
 
-### Devil's Advocate
+| Tag | Score |
+|-----|-------|
+| `[POC-PASS]` or `[MEDUSA-PASS]` | 1.0 |
+| `[TRACE:path→outcome]` full execution trace | 0.8 |
+| `[BOUNDARY:X=val]` boundary value confirmed | 0.7 |
+| `[VARIATION:param A→B]` variant tested | 0.6 |
+| Code read, no execution trace | 0.4 |
+| Pattern match only, no code trace | 0.2 |
 
-For each High+ finding, ask: "What would have to be true for this to NOT be exploitable?" Check each condition against the actual code.
+**Axis 2 — Analysis Quality (weight: 30%)**
+Score = (number of distinct evidence tags used) / 4, capped at 1.0.
+If Step 5+ of a dedicated skill checklist was reached: +0.1 bonus.
+
+**Axis 3 — Prior Art Match (weight: 20%)**
+- Strong Solodit match (≥3 similar HIGH findings): 0.9
+- Some prior art found (1–2 similar findings): 0.6
+- No prior art, novel pattern: 0.4
+- No Solodit search performed: 0.3
+
+**Axis 4 — Adversarial Assumption (weight: 25%)**
+- R4 applied, worst-case external behavior modeled: 0.9
+- Partial adversarial modeling: 0.6
+- Optimistic assumptions about external contracts: 0.2
+
+**Composite:** `Evidence×0.25 + Quality×0.30 + PriorArt×0.20 + Adversarial×0.25`
+
+**Routing:**
+| Score | Verdict | Action |
+|-------|---------|--------|
+| ≥ 0.70 | CONFIRMED | Report with full evidence |
+| 0.40–0.69 | PARTIAL | Attempt PoC or variant; if still uncertain → CONTESTED |
+| < 0.40 | CONTESTED | Apply devil's advocate; search Solodit; re-evaluate |
+
+**Verdict definitions:**
+- **CONFIRMED** — Concrete attack path traced end-to-end, `[POC-PASS]` or equivalent
+- **PARTIAL** — Plausible path with some uncertain conditions; report with caveats
+- **CONTESTED** — Real uncertainty; report if Medium+, mark clearly as contested
+- **REFUTED** — Cannot reach vulnerable code under any realistic conditions; discard (note: external contract behavior cannot support REFUTED — apply R4)
+
+### Devil's Advocate — Formal DA Protocol
+
+For every High+ finding (and any CONTESTED Medium), run the full 6-dimension DA evaluation from `references/devil-advocate-protocol.md`:
+
+1. **guards** — search for `require`/`assert`/modifier blocks on any attack step
+2. **reentrancy_protection** — check `nonReentrant`, CEI on affected AND cross-contract paths
+3. **access_control** — verify attacker can actually reach each function (apply Privilege Rule: do NOT dismiss for admin-only paths that can enable unprivileged exploits)
+4. **by_design** — search NatSpec, README, docs for documented behavior
+5. **economic_feasibility** — estimate capital, gas, profit; cost > yield = −1 partial
+6. **dry_run** — trace exploit with concrete values through all arithmetic
+
+Sum scores → route: INVALIDATED (total ≤ −6 with one −3) / DEGRADED / SUSTAINED / ESCALATED.
+
+**Before dismissing any finding as false-positive**, check `references/hard-negatives.md` for matching safe patterns. Apply the graduated handling rule: full match = degrade 1 tier + annotate (still emit); partial match = original severity + note unmet conditions.
+
+### PoC Execution Evidence Tags
+
+Use these tags consistently in finding writeups:
+- `[POC-PASS]` — Foundry test passed; CONFIRMED verdict supported
+- `[POC-FAIL]` — Test written but fails; finding downgraded to PARTIAL
+- `[MEDUSA-PASS]` — Medusa/Echidna property broken; CONFIRMED verdict supported
+- `[CODE-TRACE]` — Manual execution trace without running test
+- `[BOUNDARY:X=val]` — Boundary condition verified at specific value
+- `[VARIATION:A→B]` — Variant of the attack path tested
 
 ---
 
